@@ -9,8 +9,10 @@ from timer_module import TimerModule
 
 timer_module = TimerModule().start_time()
 
-time.sleep(2)
 timer_module.pause_time()
+time.sleep(2)
+
+timer_module.start_time()
 time.sleep(2)
 
 timer = timer_module.get_time()

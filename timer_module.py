@@ -92,7 +92,7 @@ class TimerModule(TimerBase):
         return self
 
     def set_time(self, time_sec: int):
-        self._current_time = time_sec
+        self._current_time = time_sec * 1000
         self._append_start_interval(self._current_time)
         self._calculate_time()
         return self

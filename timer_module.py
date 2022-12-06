@@ -55,8 +55,8 @@ class TimerBase:
             self._clear_pause_intervals()
 
         elif self._start_intervals and not self._pause_intervals:
-            cur_time = self._get_timestamp() - self._start_intervals[-1]
-            self._current_time = cur_time
+            interval_diff = self._get_last_interval()
+            self._current_time = interval_diff
             self._refresh_start_intervals()
 
 
@@ -74,8 +74,8 @@ class TimerModule(TimerBase):
 
     def pause_time(self):
         if self._running:
-            self._calculate_time()
             self._append_pause_interval()
+            self._calculate_time()
         self._running = False
         return self
 

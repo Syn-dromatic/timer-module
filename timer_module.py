@@ -1,23 +1,21 @@
 import time
-from typing import Union, Type
 
 
 class TimerBase:
-    _timestamp_type: Union[Type[int], Type[float]] = int
     _running: bool = False
-    _current_time: Union[int, float] = 0
-    _start_intervals: list[Union[int, float]] = []
-    _pause_intervals: list[Union[int, float]] = []
+    _current_time: float = 0
+    _start_intervals: list[float] = []
+    _pause_intervals: list[float] = []
 
     def _reset_intervals(self):
         self._pause_intervals = []
         self._start_intervals = []
 
-    def _get_timestamp(self) -> Union[int, float]:
-        timestamp = self._timestamp_type(time.time())
-        return timestamp
+    def _get_timestamp(self) -> float:
+        time_ms = time.time_ns() / 1_000_000
+        return time_ms
 
-    def _append_start_interval(self, diff: Union[int, float] = 0):
+    def _append_start_interval(self, diff: float = 0):
         timestamp = self._get_timestamp()
         self._start_intervals.append(timestamp - diff)
 
@@ -32,43 +30,51 @@ class TimerBase:
     def _clear_pause_intervals(self):
         self._pause_intervals = []
 
+    def _calculate_intervals(self) -> float:
+        total_diff = 0
+        for paused_at, started_At in zip(self._pause_intervals, self._start_intervals):
+            diff = paused_at - started_At
+            total_diff += diff
+        return total_diff
+
+    def _get_last_interval(self) -> float:
+        return self._get_timestamp() - self._start_intervals[-1]
+
     def _calculate_time(self):
         if not self._running:
             return
 
         if self._start_intervals and self._pause_intervals:
-            cur_time = sum([(paused_at - started_at) for (paused_at, started_at)
-                            in zip(self._pause_intervals, self._start_intervals)])
+            interval_diff = self._calculate_intervals()
 
             if len(self._pause_intervals) != len(self._start_intervals):
-                cur_time += (self._get_timestamp() - self._start_intervals[-1])
+                interval_diff += self._get_last_interval()
 
-            self._current_time = cur_time
+            self._current_time = interval_diff
             self._refresh_start_intervals()
             self._clear_pause_intervals()
 
         elif self._start_intervals and not self._pause_intervals:
-            cur_time = (self._get_timestamp() - self._start_intervals[-1])
+            cur_time = self._get_timestamp() - self._start_intervals[-1]
             self._current_time = cur_time
             self._refresh_start_intervals()
 
 
 class TimerModule(TimerBase):
-    def __init__(self, tstmp_type=TimerBase._timestamp_type):
+    def __init__(self):
         super().__init__()
-        self._timestamp_type = tstmp_type
 
     def start_time(self):
         if not self._running:
             self._reset_intervals()
             self._append_start_interval(self._current_time)
-            self.get_time()
+            self._calculate_time()
         self._running = True
         return self
 
     def pause_time(self):
         if self._running:
-            self.get_time()
+            self._calculate_time()
             self._append_pause_interval()
         self._running = False
         return self
@@ -85,12 +91,17 @@ class TimerModule(TimerBase):
         self.start_time()
         return self
 
-    def set_time(self, time: Union[int, float]):
-        self._current_time = time
+    def set_time(self, time_sec: int):
+        self._current_time = time_sec
         self._append_start_interval(self._current_time)
-        self.get_time()
+        self._calculate_time()
         return self
 
-    def get_time(self) -> Union[int, float]:
+    def get_time(self) -> float:
+        self._calculate_time()
+        time_sec = self._current_time / 1000
+        return time_sec
+
+    def get_time_ms(self) -> float:
         self._calculate_time()
         return self._current_time

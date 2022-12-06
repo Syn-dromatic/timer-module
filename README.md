@@ -32,8 +32,3 @@ timer_module.refresh_time()
 ```
 timer_module.reset_time()
 ```
-
-### switch to floating-point timestamps
-```
-timer_module = TimerModule(float).start_time()
-```

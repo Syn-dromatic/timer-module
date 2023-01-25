@@ -1,6 +1,8 @@
 import time
 import inspect
-from typing import Callable, Coroutine, Awaitable, Union, TypeVar, ParamSpec, Any
+from typing import Callable, Coroutine, Awaitable
+from typing import Union, TypeVar, ParamSpec, Optional, Any
+
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -113,28 +115,47 @@ class TimerModule(TimerBase):
 
 
 class TimeProfilerBase:
+    __slots__ = ["_call_refs", "_initial_call_ref"]
+
     def __init__(self):
-        self._timer_refs = {}
+        self._call_refs = {}
+        self._initial_call_ref: Optional[Callable] = None
 
     @staticmethod
-    def _create_timer() -> TimerModule:
-        timer = TimerModule().start_time()
-        return timer
-
-    def _complete_timer(self, function: Callable, timer: TimerModule) -> None:
-        function_name = function.__qualname__
-        time_taken = timer.get_time_ms()
-        print("=========")
-        print(f"Name: {function_name}\nTime Taken: [{time_taken}ms]")
-        if function not in self._timer_refs:
-            self._timer_refs.update({function: 0})
-        self._timer_refs[function] += time_taken
-
-    def _set_attribute(self, class_instance: object, name: str, method: Any):
+    def _set_attribute(class_instance: object, name: str, method: Any):
         try:
             class_instance.__setattr__(name, method)
         except AttributeError:
             print(f"Class Method ({name}) is read-only and cannot be timed.")
+
+    def _complete_timer(self, func: Callable, timer: TimerModule) -> None:
+        time_taken = timer.get_time_ms()
+        if func not in self._call_refs:
+            self._call_refs.update({func: 0})
+        self._call_refs[func] += time_taken
+
+        if func == self._initial_call_ref:
+            self._profiling_report(func)
+
+    def _profiling_report(self, func: Callable):
+        profile_header = f"\n||PROFILE - {func.__qualname__}||"
+        header_len = len(profile_header) - 1
+        print(profile_header, "=" * header_len, sep="\n")
+        for function_call, function_time in self._call_refs.items():
+            function_name = function_call.__qualname__
+            if func == function_call:
+                print(f"Name: {function_name}\nTotal Time: [{function_time}ms]")
+                print("===")
+                continue
+            print(f"Name: {function_name}\nTime: [{function_time}ms]")
+            print("——")
+
+        self._call_refs = {}
+        self._initial_call_ref = None
+
+    def _set_initial_call_ref(self, func: Callable):
+        if not self._initial_call_ref:
+            self._initial_call_ref = func
 
 
 class TimeProfiler(TimeProfilerBase):
@@ -160,8 +181,10 @@ class TimeProfiler(TimeProfilerBase):
 
     def function_decorator(self, func: Callable[P, RT]) -> Callable[..., RT]:
         def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
-            timer = self._create_timer()
+            self._set_initial_call_ref(func)
+            timer = TimerModule().start_time()
             func_return = func(*args, **kwargs)
+            timer.pause_time()
             self._complete_timer(func, timer)
             return func_return
 
@@ -171,8 +194,10 @@ class TimeProfiler(TimeProfilerBase):
         self, func: Callable[P, Awaitable[RT]]
     ) -> Callable[..., Coroutine[Any, Any, RT]]:
         async def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
-            timer = self._create_timer()
+            self._set_initial_call_ref(func)
+            timer = TimerModule().start_time()
             func_return = await func(*args, **kwargs)
+            timer.pause_time()
             self._complete_timer(func, timer)
             return func_return
 

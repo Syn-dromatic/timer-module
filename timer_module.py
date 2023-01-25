@@ -138,9 +138,9 @@ class TimeProfilerBase:
             self._profiling_report(func)
 
     def _profiling_report(self, func: Callable):
-        profile_header = f"\n||PROFILE - {func.__qualname__}||"
-        header_len = len(profile_header) - 1
-        print(profile_header, "=" * header_len, sep="\n")
+        profile_header = f"||PROFILE - {func.__qualname__}||"
+        header_len = len(profile_header)
+        print("\n", profile_header, "\n", "=" * header_len, sep="")
         for function_call, function_time in self._call_refs.items():
             function_name = function_call.__qualname__
             if func == function_call:

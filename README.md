@@ -43,22 +43,32 @@ from timer_module import TimeProfiler
 class SimpleClass():
     def method1(self):
         time.sleep(1)
+        self.method2()
 
     def method2(self):
         time.sleep(2)
+        self.method3()
+
+
+    def method3(self):
+        time.sleep(3)
 
 
 sc = SimpleClass()
 sc.method1()
-sc.method2()
 ```
 
 #### Output:
 ```
-=========
-Name: SimpleClass.method1
-Time Taken: [1000.64990234375ms]
-=========
+||PROFILE - SimpleClass.method1||
+=================================
+Name: SimpleClass.method3
+Time: [3000.131103515625ms]
+——
 Name: SimpleClass.method2
-Time Taken: [2000.67041015625ms]
+Time: [5001.62841796875ms]
+——
+Name: SimpleClass.method1
+Total Time: [6006.07861328125ms]
+===
 ```

@@ -23,12 +23,12 @@ print(time_seconds)
 timer_module = TimerModule().set_time(5).start()
 ```
 
-#### refresh time (keeps state)
+#### refresh time (keeps timer state)
 ```
 timer_module.refresh()
 ```
 
-#### reset time (stops and resets)
+#### reset time (resets everyting)
 ```
 timer_module.reset()
 ```

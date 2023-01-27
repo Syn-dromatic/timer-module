@@ -60,17 +60,16 @@ class ExampleClass:
         time.sleep(1)
         self.method_4()
 
-    def method_4(self) -> None:
+    def method_4(self):
         time.sleep(0.1)
         self.method_5()
 
-    def method_5(self) -> None:
+    def method_5(self):
         time.sleep(0.1)
 
 
 ec = ExampleClass()
 ec.method_1()
-
 ```
 
 #### Output:

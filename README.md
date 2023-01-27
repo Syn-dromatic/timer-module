@@ -38,42 +38,39 @@ ___
 import time
 from timer_module import TimeProfiler
 
-
+# You only need this line to profile the entire class 
+# The program is run normally, this decorator will wrap 
+# The class and its methods in order to track execution time
 @TimeProfiler().class_profiler
-class SimpleClass():
-    def method1(self):
+class ExampleClass:
+    def __init__(self):
+        time.sleep(0.1)
+
+    def method_1(self):
+        time.sleep(0.5)
+        self.method_2()
+
+    def method_2(self):
         time.sleep(1)
-        self.method2()
+        self.method_3()
 
-    def method2(self):
-        time.sleep(2)
-        self.method3()
+    def method_3(self):
+        time.sleep(1)
+        self.method_4()
+
+    def method_4(self) -> None:
+        time.sleep(0.1)
+        self.method_5()
+
+    def method_5(self) -> None:
+        time.sleep(0.1)
 
 
-    def method3(self):
-        time.sleep(3)
+ec = ExampleClass()
+ec.method_1()
 
-
-sc = SimpleClass()
-sc.method1()
 ```
 
 #### Output:
-```
-█ PROFILE: __main__.SimpleClass █
-=================================
-Profile Time: [0.00ms]
+![](https://github.com/syn-chromatic/timer-module/blob/main/images/output.png)
 
-
-█ PROFILE: __main__.SimpleClass.method1 █
-=========================================
-Name: __main__.SimpleClass.method3
-Time: [3000.15ms] — T%: 49.99%
-——
-Name: __main__.SimpleClass.method2
-Time: [5000.62ms] — T%: 83.33%
-——
-Profile Time: [6001.09ms]
-
-――― Total Time: [6001.09ms] ―――
-```

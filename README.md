@@ -1,4 +1,6 @@
-Timer Module written in Python with profiling features.
+___
+## Prerequisite:
+Requires Python >= 3.10 as TimeProfiler makes use of new features from Python's typing module.
 
 ___
 ## Timer Usage:

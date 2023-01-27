@@ -1,4 +1,4 @@
-Timer Module written in Python with start, pause, reset and profiling features.
+Timer Module written in Python with profiling features.
 
 ___
 ## Timer Usage:

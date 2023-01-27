@@ -34,6 +34,8 @@ timer_module.reset_time()
 
 ___
 ## Profiler Usage:
+TimeProfiler also includes a "function_profiler" and "async_function_profiler", in a class the asynchronous methods are handled automatically, but for functions you need to select the appropriate decorator.
+
 ```
 import time
 from timer_module import TimeProfiler
@@ -73,4 +75,3 @@ ec.method_1()
 
 #### Output:
 ![](https://github.com/syn-chromatic/timer-module/blob/main/images/output.png)
-

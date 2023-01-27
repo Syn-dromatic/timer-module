@@ -1,204 +1,249 @@
 import time
 import inspect
-from typing import Callable, Coroutine, Awaitable
-from typing import Union, TypeVar, ParamSpec, Optional, Any
+from typing import Callable, Awaitable
+from typing import Union, TypeVar, ParamSpec
 
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
+CT = TypeVar("CT")
 
 
-class TimerBase:
-    _running: bool = False
-    _current_time: float = 0
-    _start_intervals: list[float] = []
-    _pause_intervals: list[float] = []
+class TimerModule:
+    __slots__ = ["is_running", "st_time", "cr_time"]
 
-    def _reset_intervals(self):
-        self._pause_intervals = []
-        self._start_intervals = []
+    def __init__(self):
+        self.is_running: bool = False
+        self.st_time: float = 0
+        self.cr_time: float = 0
 
-    def _get_timestamp(self) -> float:
+    @staticmethod
+    def get_timestamp_ms() -> float:
         time_ms = time.time_ns() / 1_000_000
         return time_ms
 
-    def _append_start_interval(self, diff: float = 0):
-        timestamp = self._get_timestamp()
-        self._start_intervals.append(timestamp - diff)
-
-    def _append_pause_interval(self):
-        timestamp = self._get_timestamp()
-        self._pause_intervals.append(timestamp)
-
-    def _refresh_start_intervals(self):
-        self._start_intervals = []
-        self._append_start_interval(diff=self._current_time)
-
-    def _clear_pause_intervals(self):
-        self._pause_intervals = []
-
-    def _calculate_intervals(self) -> float:
-        total_diff = 0
-        for paused_at, started_At in zip(self._pause_intervals, self._start_intervals):
-            diff = paused_at - started_At
-            total_diff += diff
-        return total_diff
-
-    def _get_last_interval(self) -> float:
-        return self._get_timestamp() - self._start_intervals[-1]
-
-    def _calculate_time(self):
-        if not self._running:
-            return
-
-        if self._start_intervals and self._pause_intervals:
-            interval_diff = self._calculate_intervals()
-
-            if len(self._pause_intervals) != len(self._start_intervals):
-                interval_diff += self._get_last_interval()
-
-            self._current_time = interval_diff
-            self._refresh_start_intervals()
-            self._clear_pause_intervals()
-
-        elif self._start_intervals and not self._pause_intervals:
-            interval_diff = self._get_last_interval()
-            self._current_time = interval_diff
-            self._refresh_start_intervals()
-
-
-class TimerModule(TimerBase):
-    def __init__(self):
-        super().__init__()
-
-    def start_time(self):
-        if not self._running:
-            self._reset_intervals()
-            self._append_start_interval(self._current_time)
-            self._calculate_time()
-        self._running = True
+    def start(self):
+        if not self.is_running:
+            self.st_time = self.get_timestamp_ms() - self.cr_time
+        self.is_running = True
         return self
 
-    def pause_time(self):
-        if self._running:
-            self._append_pause_interval()
-            self._calculate_time()
-        self._running = False
+    def pause(self):
+        if self.is_running:
+            self.cr_time = self.get_timestamp_ms() - self.st_time
+        self.is_running = False
         return self
 
-    def reset_time(self):
-        self._current_time = 0
-        self._running = False
-        self._start_intervals = []
-        self._pause_intervals = []
+    def reset(self):
+        self.st_time = 0
+        self.cr_time = 0
+        self.is_running = False
         return self
 
-    def refresh_time(self):
-        self.reset_time()
-        self.start_time()
+    def refresh(self):
+        self.reset()
+        self.start()
         return self
 
     def set_time(self, time_sec: int):
-        self._current_time = time_sec * 1000
-        self._append_start_interval(self._current_time)
-        self._calculate_time()
+        self.cr_time = time_sec * 1000
+        self.st_time = self.get_timestamp_ms() - self.cr_time
         return self
 
     def get_time(self) -> float:
-        self._calculate_time()
-        time_sec = self._current_time / 1000
+        if self.is_running:
+            self.cr_time = self.get_timestamp_ms() - self.st_time
+        time_sec = self.cr_time / 1000
         return time_sec
 
     def get_time_ms(self) -> float:
-        self._calculate_time()
-        return self._current_time
+        if self.is_running:
+            self.cr_time = self.get_timestamp_ms() - self.st_time
+        return self.cr_time
 
 
 class TimeProfilerBase:
-    __slots__ = ["_call_refs", "_initial_call_ref"]
+    __slots__ = [
+        "_realtime",
+        "_prof_timing_refs",
+        "_prof_timing_total",
+        "_object_refs",
+        "_ref_idx",
+        "_pcall_idx",
+        "_pcall_set",
+    ]
 
-    def __init__(self):
-        self._call_refs = {}
-        self._initial_call_ref: Optional[Callable] = None
+    def __init__(self, realtime: bool = False):
+        self._realtime: bool = realtime
+        self._prof_timing_refs: dict[str, dict[str, float]] = {}
+        self._prof_timing_total: float = 0
+        self._object_refs: dict[str, int] = {}
+        self._ref_idx: int = 0
+        self._pcall_idx: int = 0
+        self._pcall_set: bool = False
+
+    def __del__(self):
+        self._pcall_idx = 0
+        pcall_name = list(self._object_refs.keys())[self._pcall_idx]
+        report_str = f"END REPORT FOR {pcall_name}\n"
+        print(
+            f"{'=' * len(report_str)}\n"
+            f"{report_str}"
+            f"{'=' * len(report_str)}\n"
+        )
+        self._profiling_report()
 
     @staticmethod
-    def _set_attribute(class_instance: object, name: str, method: Any):
+    def _create_timer_module() -> TimerModule:
+        return TimerModule()
+
+    @staticmethod
+    def _get_object_name(obj: Callable):
+        obj_module = obj.__module__
+        obj_name = obj.__qualname__
+        return f"{obj_module}.{obj_name}"
+
+    @staticmethod
+    def _set_attribute(instance: CT, name: str, method: Callable) -> CT:
         try:
-            class_instance.__setattr__(name, method)
+            instance.__setattr__(name, method)
         except AttributeError:
             print(f"Class Method ({name}) is read-only and cannot be timed.")
+        return instance
 
-    def _complete_timer(self, func: Callable, timer: TimerModule) -> None:
-        time_taken = timer.get_time_ms()
-        if func not in self._call_refs:
-            self._call_refs.update({func: 0})
-        self._call_refs[func] += time_taken
+    def _get_pcall_total_time(self, pcall: str) -> float:
+        pcall_total_time = 0
+        for obj, obj_time in self._prof_timing_refs[pcall].items():
+            if pcall == obj:
+                pcall_total_time += obj_time
+        return pcall_total_time
 
-        if func == self._initial_call_ref:
-            self._profiling_report(func)
+    def _add_object_ref(self, obj: Callable):
+        obj_name = self._get_object_name(obj)
+        if obj_name not in self._object_refs:
+            self._object_refs.update({obj_name: self._ref_idx})
+            self._ref_idx += 1
 
-    def _profiling_report(self, func: Callable):
-        profile_header = f"||PROFILE - {func.__qualname__}||"
-        header_len = len(profile_header)
-        print("\n", profile_header, "\n", "=" * header_len, sep="")
-        for function_call, function_time in self._call_refs.items():
-            function_name = function_call.__qualname__
-            if func == function_call:
-                print(f"Name: {function_name}\nTotal Time: [{function_time}ms]")
-                print("===")
-                continue
-            print(f"Name: {function_name}\nTime: [{function_time}ms]")
-            print("——")
+    def _append_object_profiling(self, obj: Callable, time_taken: float) -> None:
+        pcall_name = list(self._object_refs.keys())[self._pcall_idx]
+        obj_name = self._get_object_name(obj)
 
-        self._call_refs = {}
-        self._initial_call_ref = None
+        if pcall_name not in self._prof_timing_refs:
+            self._prof_timing_refs.update({pcall_name: {}})
 
-    def _set_initial_call_ref(self, func: Callable):
-        if not self._initial_call_ref:
-            self._initial_call_ref = func
+        if obj_name not in self._prof_timing_refs[pcall_name]:
+            self._prof_timing_refs[pcall_name].update({obj_name: 0})
 
+        self._prof_timing_refs[pcall_name][obj_name] += time_taken
 
-class TimeProfiler(TimeProfilerBase):
-    def get_method_wrapper(
+        is_pcall = self._object_refs[obj_name] == self._pcall_idx
+        if is_pcall:
+            self._prof_timing_total += time_taken
+            self._pcall_set = False
+
+        if is_pcall and self._realtime:
+            self._profiling_report()
+
+    def _profiling_report(self):
+        for pcall, pcall_objs in self._prof_timing_refs.items():
+            profile_header = f"█ PROFILE: {pcall} █"
+            header_len = len(profile_header)
+            print(f"\n{profile_header}\n" f"{'=' * header_len}")
+            pcall_total_time = self._get_pcall_total_time(pcall)
+            for obj, obj_time in pcall_objs.items():
+                if obj == pcall:
+                    continue
+                t_prc = 0
+                if obj_time != 0 and pcall_total_time != 0:
+                    t_prc = (obj_time / pcall_total_time) * 100
+
+                print(
+                    f"Name: {obj}\n"
+                    f"Time: [{obj_time:.2f}ms] — T%: {t_prc:.2f}%\n"
+                    "——"
+                )
+
+            print(f"Profile Time: [{pcall_total_time:.2f}ms]\n")
+
+        print(f"――― Total Time: [{self._prof_timing_total:.2f}ms] ―――" "\n\n\n")
+
+    def _set_call_idx(self, obj: Callable):
+        obj_name = self._get_object_name(obj)
+        if not self._pcall_set:
+            self._pcall_idx = self._object_refs[obj_name]
+            self._pcall_set = True
+
+    def _get_method_wrapper(
         self, method: Callable[P, RT]
-    ) -> Union[Callable[..., RT], Callable[..., Coroutine[Any, Any, RT]]]:
+    ) -> Union[Callable[P, RT], Callable[P, Awaitable[RT]]]:
         is_coroutine = inspect.iscoroutinefunction(method)
+        timer_module = self._create_timer_module()
         if is_coroutine:
-            return self.async_function_decorator(method)
-        return self.function_decorator(method)
+            return self._async_function_wrapper(method, timer_module)
+        return self._function_wrapper(method, timer_module)
 
-    def class_decorator(self, class_object: Callable[P, RT]) -> Callable[..., RT]:
-        def class_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
+    def _class_wrapper(
+        self, class_object: Callable[P, CT], timer_module: TimerModule
+    ) -> Callable[P, CT]:
+        def class_wrapper(*args: P.args, **kwargs: P.kwargs) -> CT:
+            timer_module.start()
             class_instance = class_object(*args, **kwargs)
+            time_ms = timer_module.get_time_ms()
+            timer_module.reset()
+            self._append_object_profiling(class_object, time_ms)
+
             methods = inspect.getmembers(class_instance, predicate=inspect.ismethod)
             for name, method in methods:
-                method = self.get_method_wrapper(method)
-                self._set_attribute(class_instance, name, method)
-
+                self._add_object_ref(method)
+                method = self._get_method_wrapper(method)
+                class_instance = self._set_attribute(class_instance, name, method)
             return class_instance
 
         return class_wrapper
 
-    def function_decorator(self, func: Callable[P, RT]) -> Callable[..., RT]:
+    def _function_wrapper(
+        self, func: Callable[P, RT], timer_module: TimerModule
+    ) -> Callable[P, RT]:
         def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
-            self._set_initial_call_ref(func)
-            timer = TimerModule().start_time()
+            self._set_call_idx(func)
+            timer_module.start()
             func_return = func(*args, **kwargs)
-            timer.pause_time()
-            self._complete_timer(func, timer)
+            time_ms = timer_module.get_time_ms()
+            timer_module.reset()
+            self._append_object_profiling(func, time_ms)
             return func_return
 
         return function_wrapper
 
-    def async_function_decorator(
-        self, func: Callable[P, Awaitable[RT]]
-    ) -> Callable[..., Coroutine[Any, Any, RT]]:
+    def _async_function_wrapper(
+        self, func: Callable[P, Awaitable[RT]], timer_module: TimerModule
+    ) -> Callable[P, Awaitable[RT]]:
         async def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
-            self._set_initial_call_ref(func)
-            timer = TimerModule().start_time()
+            self._set_call_idx(func)
+            timer_module.start()
             func_return = await func(*args, **kwargs)
-            timer.pause_time()
-            self._complete_timer(func, timer)
+            time_ms = timer_module.get_time_ms()
+            timer_module.reset()
+            self._append_object_profiling(func, time_ms)
             return func_return
 
         return function_wrapper
+
+
+class TimeProfiler(TimeProfilerBase):
+    def class_profiler(self, class_object: Callable[P, CT]) -> Callable[P, CT]:
+        self._add_object_ref(class_object)
+        timer_module = self._create_timer_module()
+        return self._class_wrapper(class_object, timer_module)
+
+    def function_profiler(self, func: Callable[P, RT]) -> Callable[P, RT]:
+        self._add_object_ref(func)
+        timer_module = self._create_timer_module()
+        return self._function_wrapper(func, timer_module)
+
+    def async_function_profiler(
+        self, func: Callable[P, Awaitable[RT]]
+    ) -> Callable[P, Awaitable[RT]]:
+        self._add_object_ref(func)
+        timer_module = self._create_timer_module()
+        return self._async_function_wrapper(func, timer_module)

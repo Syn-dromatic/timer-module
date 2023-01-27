@@ -6,12 +6,12 @@ ___
 import time
 from timer_module import TimerModule
 
-timer_module = TimerModule().start_time()
+timer_module = TimerModule().start()
 
-timer_module.pause_time()
+timer_module.pause()
 time.sleep(2)
 
-timer_module.start_time()
+timer_module.start()
 time.sleep(2)
 
 timer = timer_module.get_time()
@@ -19,17 +19,17 @@ timer = timer_module.get_time()
 
 #### set the timer
 ```
-timer_module = TimerModule().set_time(5).start_time()
+timer_module = TimerModule().set_time(5).start()
 ```
 
 #### refresh time (keeps state)
 ```
-timer_module.refresh_time()
+timer_module.refresh()
 ```
 
 #### reset time (stops and resets)
 ```
-timer_module.reset_time()
+timer_module.reset()
 ```
 
 ___

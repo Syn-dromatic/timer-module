@@ -14,7 +14,8 @@ time.sleep(2)
 timer_module.start()
 time.sleep(2)
 
-timer = timer_module.get_time()
+time_seconds = timer_module.get_time()
+print(time_seconds)
 ```
 
 #### set the timer

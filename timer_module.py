@@ -84,8 +84,7 @@ class TimeProfilerBase:
 
     def __del__(self):
         self._pcall_idx = 0
-        pcall_name = list(self._object_refs.keys())[self._pcall_idx]
-        report_str = f"END REPORT FOR {pcall_name}"
+        report_str = "END REPORT"
         print(f"{'=' * len(report_str)}\n{report_str}\n{'=' * len(report_str)}\n")
         self._profiling_report()
 
@@ -161,7 +160,7 @@ class TimeProfilerBase:
 
             print(f"Profile Time: [{pcall_total_time:.2f}ms]\n")
 
-        print(f"――― Total Time: [{self._prof_timing_total:.2f}ms] ―――" "\n\n\n")
+        print(f"――― Total Time: [{self._prof_timing_total:.2f}ms] ―――\n\n\n")
 
     def _set_call_idx(self, obj: Callable):
         obj_name = self._get_object_name(obj)
@@ -183,6 +182,7 @@ class TimeProfilerBase:
     ) -> Type[Callable[P, CT]]:
         class ClassWrapper:
             def __new__(cls: Type[c_obj], *args: P.args, **kwargs: P.kwargs) -> CT:
+                self._set_call_idx(c_obj)
                 timer_module.start()
                 c_instance = c_obj(*args, **kwargs)
                 time_ms = timer_module.get_time_ms()
@@ -228,6 +228,13 @@ class TimeProfilerBase:
 
 
 class TimeProfiler(TimeProfilerBase):
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, "instance") or not isinstance(cls.instance, cls):
+            cls.instance = super(TimeProfiler, cls).__new__(cls)
+            super(cls, cls.instance).__init__(*args, **kwargs)
+            TimeProfiler.__init__ = lambda *args, **kwargs: None
+        return cls.instance
+
     def class_profiler(
         self, c_obj: Type[Callable[P, CT]]
     ) -> Union[Type[Callable[P, CT]], Type[CT]]:

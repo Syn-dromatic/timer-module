@@ -39,7 +39,7 @@ import time
 from timer_module import TimeProfiler
 
 
-@TimeProfiler().class_decorator
+@TimeProfiler().class_profiler
 class SimpleClass():
     def method1(self):
         time.sleep(1)
@@ -60,15 +60,20 @@ sc.method1()
 
 #### Output:
 ```
-||PROFILE - SimpleClass.method1||
+█ PROFILE: __main__.SimpleClass █
 =================================
-Name: SimpleClass.method3
-Time: [3000.131103515625ms]
+Profile Time: [0.00ms]
+
+
+█ PROFILE: __main__.SimpleClass.method1 █
+=========================================
+Name: __main__.SimpleClass.method3
+Time: [3000.15ms] — T%: 49.99%
 ——
-Name: SimpleClass.method2
-Time: [5001.62841796875ms]
+Name: __main__.SimpleClass.method2
+Time: [5000.62ms] — T%: 83.33%
 ——
-Name: SimpleClass.method1
-Total Time: [6006.07861328125ms]
-===
+Profile Time: [6001.09ms]
+
+――― Total Time: [6001.09ms] ―――
 ```

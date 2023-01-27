@@ -63,24 +63,19 @@ class TimerModule:
 
 
 class TimeProfilerBase:
-    __slots__ = [
-        "_realtime",
-        "_prof_timing_refs",
-        "_prof_timing_total",
-        "_object_refs",
-        "_ref_idx",
-        "_pcall_idx",
-        "_pcall_set",
-    ]
-
     def __init__(self, realtime: bool = False):
         self._realtime: bool = realtime
-        self._prof_timing_refs: dict[str, dict[str, float]] = {}
-        self._prof_timing_total: float = 0
-        self._object_refs: dict[str, int] = {}
-        self._ref_idx: int = 0
-        self._pcall_idx: int = 0
-        self._pcall_set: bool = False
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, "instance") or not isinstance(cls.instance, cls):
+            cls.instance = super(TimeProfilerBase, cls).__new__(cls)
+            cls._prof_timing_refs: dict[str, dict[str, float]] = {}
+            cls._prof_timing_total: float = 0
+            cls._object_refs: dict[str, int] = {}
+            cls._ref_idx: int = 0
+            cls._pcall_idx: int = 0
+            cls._pcall_set: bool = False
+        return cls.instance
 
     def __del__(self):
         self._pcall_idx = 0
@@ -228,13 +223,6 @@ class TimeProfilerBase:
 
 
 class TimeProfiler(TimeProfilerBase):
-    def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, "instance") or not isinstance(cls.instance, cls):
-            cls.instance = super(TimeProfiler, cls).__new__(cls)
-            super(cls, cls.instance).__init__(*args, **kwargs)
-            TimeProfiler.__init__ = lambda *args, **kwargs: None
-        return cls.instance
-
     def class_profiler(
         self, c_obj: Type[Callable[P, CT]]
     ) -> Union[Type[Callable[P, CT]], Type[CT]]:

@@ -1,4 +1,6 @@
-Timer Module written in Python with profiling features.
+___
+## Prerequisite:
+Requires Python >= 3.10 as TimeProfiler makes use of new features from Python's typing module.
 
 ___
 ## Timer Usage:
@@ -6,34 +8,37 @@ ___
 import time
 from timer_module import TimerModule
 
-timer_module = TimerModule().start_time()
+timer_module = TimerModule().start()
 
-timer_module.pause_time()
+timer_module.pause()
 time.sleep(2)
 
-timer_module.start_time()
+timer_module.start()
 time.sleep(2)
 
-timer = timer_module.get_time()
+time_seconds = timer_module.get_time()
+print(time_seconds)
 ```
 
 #### set the timer
 ```
-timer_module = TimerModule().set_time(5).start_time()
+timer_module = TimerModule().set_time(5).start()
 ```
 
-#### refresh time (keeps state)
+#### refresh time (keeps timer state)
 ```
-timer_module.refresh_time()
+timer_module.refresh()
 ```
 
-#### reset time (stops and resets)
+#### reset time (resets everyting)
 ```
-timer_module.reset_time()
+timer_module.reset()
 ```
 
 ___
 ## Profiler Usage:
+TimeProfiler also includes a "function_profiler" and "async_function_profiler", in a class the asynchronous methods are handled automatically, but for functions you need to select the appropriate decorator.
+
 ```
 import time
 from timer_module import TimeProfiler
@@ -58,19 +63,17 @@ class ExampleClass:
         time.sleep(1)
         self.method_4()
 
-    def method_4(self) -> None:
+    def method_4(self):
         time.sleep(0.1)
         self.method_5()
 
-    def method_5(self) -> None:
+    def method_5(self):
         time.sleep(0.1)
 
 
 ec = ExampleClass()
 ec.method_1()
-
 ```
 
 #### Output:
 ![](https://github.com/syn-chromatic/timer-module/blob/main/images/output.png)
-

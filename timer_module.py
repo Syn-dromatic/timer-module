@@ -220,21 +220,24 @@ class TimeProfilerBase:
     def _class_wrapper(
         self, cls_obj: Type[Callable[P, CT]], timer_module: TimerModule
     ) -> Type[CT]:
-        class ClassWrapper(super().__class__):
-            def __new__(cls: cls_obj, *args: P.args, **kwargs: P.kwargs) -> CT:
-                pcall_obj = self._set_pcall_obj(cls_obj)
+        class ClassWrapper(cls_obj):  # type: ignore
+            def __init__(_self, *args: P.args, **kwargs: P.kwargs) -> None:
                 timer_module.start()
-                c_instance = cls_obj(*args, **kwargs)
+                super().__init__(*args, **kwargs)
                 time_ms = timer_module.get_time_ms()
                 timer_module.reset()
+                pcall_obj = self._set_pcall_obj(cls_obj)
                 self._append_object_profiling(pcall_obj, cls_obj, time_ms)
 
-                methods = inspect.getmembers(c_instance, predicate=inspect.ismethod)
+            def __new__(_cls: cls_obj, *args: P.args, **kwargs: P.kwargs) -> CT:
+                self._set_pcall_obj(cls_obj)
+                cls_instance = super().__new__(_cls)
+                methods = inspect.getmembers(cls_instance, predicate=inspect.ismethod)
                 for name, method in methods:
                     self._add_object_ref(method)
                     method = self._get_method_wrapper(method)
-                    c_instance = self._set_attribute(c_instance, name, method)
-                return c_instance
+                    cls_instance = self._set_attribute(cls_instance, name, method)
+                return cls_instance
 
         return ClassWrapper
 

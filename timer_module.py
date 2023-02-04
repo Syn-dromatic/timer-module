@@ -262,9 +262,9 @@ class TimeProfilerBase:
 
 
 class TimeProfiler(TimeProfilerBase):
-    def class_profiler(self, c_obj: Type[Callable[P, CT]]) -> Type[CT]:
-        self._add_object_ref(c_obj)
-        return self._class_wrapper(c_obj)
+    def class_profiler(self, cls_obj: Type[Callable[P, CT]]) -> Type[CT]:
+        self._add_object_ref(cls_obj)
+        return self._class_wrapper(cls_obj)
 
     def function_profiler(self, func: Callable[P, RT]) -> Callable[P, RT]:
         self._add_object_ref(func)

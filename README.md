@@ -76,4 +76,4 @@ ec.method_1()
 ```
 
 #### Output:
-![](https://github.com/syn-chromatic/timer-module/blob/main/examples/profiler_output.png)
+![](https://raw.githubusercontent.com/syn-chromatic/timer-module/main/examples/profiler_output.png)

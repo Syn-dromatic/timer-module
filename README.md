@@ -4,7 +4,7 @@ Requires Python >= 3.10 as TimeProfiler makes use of new features from Python's 
 
 ___
 ## Timer Usage:
-```
+```python
 import time
 from timer_module import TimerModule
 
@@ -21,17 +21,17 @@ print(time_seconds)
 ```
 
 #### set the timer
-```
+```python
 timer_module = TimerModule().set_time(5).start()
 ```
 
 #### refresh time (keeps timer state)
-```
+```python
 timer_module.refresh()
 ```
 
 #### reset time (resets everyting)
-```
+```python
 timer_module.reset()
 ```
 
@@ -39,7 +39,7 @@ ___
 ## Profiler Usage:
 TimeProfiler also includes a "function_profiler" and "async_function_profiler", in a class the asynchronous methods are handled automatically, but for functions you need to select the appropriate decorator.
 
-```
+```python
 import time
 from timer_module import TimeProfiler
 

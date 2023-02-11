@@ -9,7 +9,7 @@ long_description = (root / "README.md").read_text()
 
 setup(
     name="timer-module",
-    author="Synchromatic",
+    author="syn-chromatic",
     author_email="synchromatic.github@gmail.com ",
     url="https://github.com/syn-chromatic/timer-module",
     version=VERSION,

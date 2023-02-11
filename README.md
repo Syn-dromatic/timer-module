@@ -1,6 +1,14 @@
 ___
 ## Prerequisite:
+```
 Requires Python >= 3.10 as TimeProfiler makes use of new features from Python's typing module.
+```
+
+___
+## Installation:
+```
+pip install timer-module
+```
 
 ___
 ## Timer Usage:

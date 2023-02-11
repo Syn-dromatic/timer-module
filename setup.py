@@ -1,7 +1,7 @@
 from pathlib import Path
 from setuptools import setup, find_packages
 
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 DESCRIPTION = "Timer Module with profiling features"
 
 root = Path(__file__).parent

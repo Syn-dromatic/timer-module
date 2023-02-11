@@ -11,7 +11,7 @@ setup(
     name="timer-module",
     author="Synchromatic",
     author_email="synchromatic.github@gmail.com ",
-    url="https://github.com/syn-chromatic",
+    url="https://github.com/syn-chromatic/timer-module",
     version=VERSION,
     description=DESCRIPTION,
     long_description=long_description,

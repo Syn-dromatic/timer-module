@@ -1,7 +1,8 @@
 ___
 ## Prerequisite:
 ```
-Requires Python >= 3.10 as TimeProfiler makes use of new features from Python's typing module.
+Requires Python >= 3.10
+TimeProfiler makes use of new features from Python's typing module.
 ```
 
 ___

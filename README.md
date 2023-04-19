@@ -1,18 +1,18 @@
 ___
-## Prerequisite:
+## 📋 Prerequisite:
 ```
 Requires Python >= 3.10
 TimeProfiler makes use of new features from Python's typing module.
 ```
 
 ___
-## Installation:
+## 🛠️ Installation:
 ```
 pip install timer-module
 ```
 
 ___
-## Timer Usage:
+## 🖥️ Timer Usage:
 ```python
 import time
 from timer_module import TimerModule
@@ -29,23 +29,23 @@ time_seconds = timer_module.get_time()
 print(time_seconds)
 ```
 
-#### set the timer
+#### Set the timer
 ```python
 timer_module = TimerModule().set_time(5).start()
 ```
 
-#### refresh time (keeps timer state)
+#### Refresh time (preserves timer state):
 ```python
 timer_module.refresh()
 ```
 
-#### reset time (resets everyting)
+#### Reset time (resets everyting)
 ```python
 timer_module.reset()
 ```
 
 ___
-## Profiler Usage:
+## 🖥️ Profiler Usage:
 TimeProfiler also includes a "function_profiler" and "async_function_profiler", in a class the asynchronous methods are handled automatically, but for functions you need to select the appropriate decorator.
 
 ```python

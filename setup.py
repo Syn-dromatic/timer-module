@@ -5,7 +5,7 @@ VERSION = "1.1.0"
 DESCRIPTION = "Timer Module with performance profiling features"
 
 root = Path(__file__).parent
-long_description = (root / "README.md").read_text()
+long_description = (root / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="timer-module",

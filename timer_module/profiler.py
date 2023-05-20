@@ -4,8 +4,9 @@ from time import time_ns
 
 from typing import Callable, Awaitable
 from typing import Union, Optional, Type, TypeVar, ParamSpec
-
 from inspect import getmembers, ismethod, isfunction, iscoroutinefunction
+
+from .utils import TimeFormatter
 
 
 P = ParamSpec("P")
@@ -14,13 +15,89 @@ CT = TypeVar("CT")
 
 
 class ObjectCall:
-    __slots__ = ("name", "module", "time", "ncalls")
+    __slots__ = ("name", "module", "time_ns", "ncalls")
 
     def __init__(self, name: str, module: str, time: float, ncalls: int):
         self.name = name
         self.module = module
-        self.time = time
+        self.time_ns = time
         self.ncalls = ncalls
+
+
+class StdOut:
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def print_primary_call_header(object_call: ObjectCall) -> None:
+        pcall_name = object_call.name
+        profile_header = "█ PROFILE: {} █"
+        profile_header = profile_header.format(pcall_name)
+        separator = "=" * len(profile_header)
+        string = "\n{}\n{}"
+        string = string.format(profile_header, separator)
+        print(string)
+
+    @staticmethod
+    def print_primary_call(primary_call: ObjectCall) -> None:
+        pcall_time_ns = primary_call.time_ns
+        pcall_ncalls = primary_call.ncalls
+        percall_time_ns = pcall_time_ns / pcall_ncalls
+
+        pcall_time = TimeFormatter(pcall_time_ns).auto_format_time()
+        percall_time = TimeFormatter(percall_time_ns).auto_format_time()
+        string = "Profile Time: [{}]\nNCalls: [{}] — PerCall: [{}]\n——————\n"
+        string = string.format(pcall_time, pcall_ncalls, percall_time)
+        print(string)
+
+    @staticmethod
+    def print_call(object_call: ObjectCall, pcall_time: float) -> None:
+        obj_name = object_call.name
+        obj_time_ns = object_call.time_ns
+        obj_ncalls = object_call.ncalls
+        percall_time_ns = obj_time_ns / obj_ncalls
+
+        obj_time = TimeFormatter(obj_time_ns).auto_format_time()
+        percall_time = TimeFormatter(percall_time_ns).auto_format_time()
+
+        t_prc = 0
+        if obj_time != 0 and pcall_time != 0:
+            t_prc = (obj_time_ns / pcall_time) * 100
+
+        string = "Name: {}\nTime: [{}] — T%: {:.2f}%\nNCalls: [{}] — PerCall: [{}]\n——"
+        string = string.format(obj_name, obj_time, t_prc, obj_ncalls, percall_time)
+        print(string)
+
+    @staticmethod
+    def print_end_report_separator():
+        end = "END REPORT"
+        separator = "=" * len(end)
+        string = "{}\n{}\n{}\n"
+        string = string.format(separator, end, separator)
+        print(string)
+
+    def print_profiling_report(
+        self,
+        object_refs: dict[int, ObjectCall],
+        timing_refs: dict[int, set[int]],
+        total_time_ns: float,
+    ) -> None:
+        for pcall_hash, ref_list in timing_refs.items():
+            pcall_object = object_refs[pcall_hash]
+            self.print_primary_call_header(pcall_object)
+            pcall_time = pcall_object.time_ns
+            for ref_hash in ref_list:
+                if ref_hash == pcall_hash:
+                    continue
+                object_call = object_refs[ref_hash]
+                self.print_call(object_call, pcall_time)
+
+            self.print_primary_call(pcall_object)
+
+        total_time = TimeFormatter(total_time_ns).auto_format_time()
+        string = "――― Total Time: [{}] ―――\n\n\n"
+        string = string.format(f"{total_time}")
+        print(string)
 
 
 class TimeProfilerBase:
@@ -30,16 +107,21 @@ class TimeProfilerBase:
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, "instance") or not isinstance(cls.instance, cls):
             cls.instance = super(TimeProfilerBase, cls).__new__(cls)
-            cls._prof_timing_refs: dict[int, set[int]] = {}
-            cls._prof_timing_total: float = 0.0
             cls._object_refs: dict[int, ObjectCall] = {}
+            cls._timing_refs: dict[int, set[int]] = {}
+            cls._timing_total: float = 0.0
             cls._pcall_hash: Optional[int] = None
         return cls.instance
 
     def __del__(self) -> None:
-        report_str = "END REPORT"
-        print(f"{'=' * len(report_str)}\n{report_str}\n{'=' * len(report_str)}\n")
-        self._print_profiling_report()
+        self._print_report()
+
+    def _print_report(self):
+        std_out = StdOut()
+        object_refs = self._object_refs
+        timing_refs = self._timing_refs
+        total_time = self._timing_total
+        std_out.print_profiling_report(object_refs, timing_refs, total_time)
 
     @staticmethod
     def _set_attribute(instance: CT, name: str, method: Callable) -> CT:
@@ -49,21 +131,21 @@ class TimeProfilerBase:
             print(f"Class Method ({name}) is read-only and cannot be timed.")
         return instance
 
-    def _append_object_profiling(self, object_hash: int, duration: float) -> None:
+    def _append_object_profiling(self, object_hash: int, time_ns: float) -> None:
         object_refs = self._object_refs
         pcall_obj = self._pcall_hash
 
         object_call = object_refs[object_hash]
-        object_call.time += duration
+        object_call.time_ns += time_ns
         object_call.ncalls += 1
 
         if pcall_obj is not None:
-            if object_hash == pcall_obj:
-                self._prof_timing_total += duration
+            if not object_hash == pcall_obj:
+                self._timing_total += time_ns
                 self._pcall_hash = None
 
                 if self._realtime:
-                    self._print_profiling_report()
+                    self._print_report()
 
     @staticmethod
     def _create_object_call(obj: Callable) -> ObjectCall:
@@ -85,75 +167,15 @@ class TimeProfilerBase:
         hash_result = int(hasher.hexdigest(), 16)
         return hash_result
 
-    @staticmethod
-    def _print_pcall_header(object_call: ObjectCall) -> None:
-        pcall_name = object_call.name
-        profile_header = f"█ PROFILE: {pcall_name} █"
-        header_len = len(profile_header)
-        header = "=" * header_len
-        print(f"\n{profile_header}\n{header}")
-
-    def _print_pcall(self, object_call: ObjectCall) -> None:
-        pcall_time = object_call.time
-        pcall_ncalls = object_call.ncalls
-        pcall_percall = pcall_time / pcall_ncalls
-
-        f_pcall_time = self._format_time(pcall_time)
-        f_pcall_percall = self._format_time(pcall_percall)
-
-        print(
-            "Profile Time: [{}]\nNCalls: [{}] — PerCall: [{}]\n——————\n".format(
-                f_pcall_time, pcall_ncalls, f_pcall_percall
-            )
-        )
-
-    def _print_call(self, object_call: ObjectCall, pcall_time: float) -> None:
-        obj_name = object_call.name
-        obj_time = object_call.time
-
-        obj_ncalls = object_call.ncalls
-        obj_percall = obj_time / obj_ncalls
-
-        f_obj_time = self._format_time(obj_time)
-        f_obj_percall = self._format_time(obj_percall)
-
-        t_prc = 0
-        if obj_time != 0 and pcall_time != 0:
-            t_prc = (obj_time / pcall_time) * 100
-
-        print(
-            "Name: {}\nTime: [{}] — T%: {:.2f}%\nNCalls: [{}] — PerCall: [{}]\n——".format(
-                obj_name, f_obj_time, t_prc, obj_ncalls, f_obj_percall
-            )
-        )
-
-    def _print_profiling_report(self) -> None:
-        object_refs = self._object_refs
-
-        for pcall_hash, obj_list in self._prof_timing_refs.items():
-            pcall_object = object_refs[pcall_hash]
-            self._print_pcall_header(pcall_object)
-            pcall_time = pcall_object.time
-            for object_hash in obj_list:
-                if object_hash == pcall_hash:
-                    continue
-                object_call = object_refs[object_hash]
-                self._print_call(object_call, pcall_time)
-
-            self._print_pcall(pcall_object)
-
-        time_total = self._format_time(self._prof_timing_total)
-        print("――― Total Time: [{}] ―――\n\n\n".format(f"{time_total}"))
-
     def _set_pcall_hash(self, object_hash: int) -> int:
         pcall_hash = self._pcall_hash
 
         if pcall_hash is None:
             pcall_hash = object_hash
             self._pcall_hash = pcall_hash
-            self._prof_timing_refs[pcall_hash] = set()
+            self._timing_refs[pcall_hash] = set()
 
-        pcall_timing = self._prof_timing_refs[pcall_hash]
+        pcall_timing = self._timing_refs[pcall_hash]
         pcall_timing.add(object_hash)
 
         return object_hash
@@ -163,23 +185,6 @@ class TimeProfilerBase:
         object_call = self._create_object_call(obj)
         self._object_refs[hash_ref] = object_call
         return hash_ref
-
-    @staticmethod
-    def _format_time(nanos: float) -> str:
-        if nanos >= 1e9:
-            secs = nanos / 1e9
-            return f"{secs:.2f}s"
-
-        elif nanos >= 1e6:
-            millis = nanos / 1e6
-            return f"{millis:.2f}ms"
-
-        elif nanos >= 1e3:
-            micros = nanos / 1e3
-            return f"{micros:.2f}μs"
-
-        else:
-            return f"{nanos:.2f}ns"
 
     def _get_method_wrapper(
         self, method: Callable[P, RT], main_ref: int

@@ -17,3 +17,4 @@ class TimeFormatter:
             return f"{micros:.2f}μs"
 
         return f"{nanos:.2f}ns"
+

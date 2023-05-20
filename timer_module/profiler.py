@@ -1,12 +1,14 @@
 import hashlib
 
-from time import time_ns
+from time import perf_counter_ns
 
 from typing import Callable, Awaitable
 from typing import Union, Optional, Type, TypeVar, ParamSpec
 from inspect import getmembers, ismethod, isfunction, iscoroutinefunction
 
-from .utils import TimeFormatter
+from .converters import TimeFormatter
+from .stdio import Stdio
+from .stdio import ANSICode, GreenANSI, YellowANSI, WhiteANSI, CyanANSI
 
 
 P = ParamSpec("P")
@@ -23,65 +25,80 @@ class ObjectCall:
         self.time_ns = time
         self.ncalls = ncalls
 
+    def get_percall_time(self) -> float:
+        if self.ncalls > 0:
+            percall_time_ns = self.time_ns / self.ncalls
+            return percall_time_ns
+        return 0.0
 
-class StdOut:
-    def __init__(self):
-        pass
 
-    @staticmethod
-    def print_primary_call_header(object_call: ObjectCall) -> None:
+class ProfileReport:
+    def __init__(self, realtime: bool = False):
+        self.stdio = Stdio()
+        self.realtime = realtime
+        self.header_color = self.get_header_color()
+        self.call_color = self.get_call_color()
+        self.total_color = CyanANSI()
+
+    def get_header_color(self) -> ANSICode:
+        if self.realtime:
+            return YellowANSI()
+        return GreenANSI()
+
+    def get_call_color(self) -> ANSICode:
+        if self.realtime:
+            return CyanANSI()
+        return WhiteANSI()
+
+    def get_relative_percentage(self, pcall_ns: float, obj_ns: float) -> float:
+        percentage = 0.0
+        if pcall_ns > 0.0 and obj_ns > 0.0:
+            percentage = (obj_ns / pcall_ns) * 100
+        return percentage
+
+    def print_primary_call_header(self, object_call: ObjectCall):
         pcall_name = object_call.name
         profile_header = "█ PROFILE: {} █"
         profile_header = profile_header.format(pcall_name)
         separator = "=" * len(profile_header)
         string = "\n{}\n{}"
         string = string.format(profile_header, separator)
-        print(string)
+        self.stdio.set_ansi_color(self.header_color)
+        self.stdio.stdout(string)
 
-    @staticmethod
-    def print_primary_call(primary_call: ObjectCall) -> None:
+    def print_primary_call(self, primary_call: ObjectCall):
         pcall_time_ns = primary_call.time_ns
         pcall_ncalls = primary_call.ncalls
-        percall_time_ns = pcall_time_ns / pcall_ncalls
+        percall_time_ns = primary_call.get_percall_time()
 
         pcall_time = TimeFormatter(pcall_time_ns).auto_format_time()
         percall_time = TimeFormatter(percall_time_ns).auto_format_time()
         string = "Profile Time: [{}]\nNCalls: [{}] — PerCall: [{}]\n——————\n"
         string = string.format(pcall_time, pcall_ncalls, percall_time)
-        print(string)
+        self.stdio.set_ansi_color(self.call_color)
+        self.stdio.stdout(string)
 
-    @staticmethod
-    def print_call(object_call: ObjectCall, pcall_time: float) -> None:
+    def print_call(self, object_call: ObjectCall, pcall_time: float):
         obj_name = object_call.name
         obj_time_ns = object_call.time_ns
         obj_ncalls = object_call.ncalls
-        percall_time_ns = obj_time_ns / obj_ncalls
+        percall_time_ns = object_call.get_percall_time()
 
+        prc = self.get_relative_percentage(pcall_time, obj_time_ns)
         obj_time = TimeFormatter(obj_time_ns).auto_format_time()
         percall_time = TimeFormatter(percall_time_ns).auto_format_time()
 
-        t_prc = 0
-        if obj_time != 0 and pcall_time != 0:
-            t_prc = (obj_time_ns / pcall_time) * 100
-
         string = "Name: {}\nTime: [{}] — T%: {:.2f}%\nNCalls: [{}] — PerCall: [{}]\n——"
-        string = string.format(obj_name, obj_time, t_prc, obj_ncalls, percall_time)
-        print(string)
-
-    @staticmethod
-    def print_end_report_separator():
-        end = "END REPORT"
-        separator = "=" * len(end)
-        string = "{}\n{}\n{}\n"
-        string = string.format(separator, end, separator)
-        print(string)
+        string = string.format(obj_name, obj_time, prc, obj_ncalls, percall_time)
+        self.stdio.set_ansi_color(self.call_color)
+        self.stdio.stdout(string)
 
     def print_profiling_report(
         self,
         object_refs: dict[int, ObjectCall],
         timing_refs: dict[int, set[int]],
         total_time_ns: float,
-    ) -> None:
+    ):
         for pcall_hash, ref_list in timing_refs.items():
             pcall_object = object_refs[pcall_hash]
             self.print_primary_call_header(pcall_object)
@@ -97,7 +114,8 @@ class StdOut:
         total_time = TimeFormatter(total_time_ns).auto_format_time()
         string = "――― Total Time: [{}] ―――\n\n\n"
         string = string.format(f"{total_time}")
-        print(string)
+        self.stdio.set_ansi_color(self.total_color)
+        self.stdio.stdout(string)
 
 
 class TimeProfilerBase:
@@ -116,12 +134,12 @@ class TimeProfilerBase:
     def __del__(self) -> None:
         self._print_report()
 
-    def _print_report(self):
-        std_out = StdOut()
+    def _print_report(self, realtime: bool = False):
+        report = ProfileReport(realtime)
         object_refs = self._object_refs
         timing_refs = self._timing_refs
         total_time = self._timing_total
-        std_out.print_profiling_report(object_refs, timing_refs, total_time)
+        report.print_profiling_report(object_refs, timing_refs, total_time)
 
     @staticmethod
     def _set_attribute(instance: CT, name: str, method: Callable) -> CT:
@@ -140,12 +158,12 @@ class TimeProfilerBase:
         object_call.ncalls += 1
 
         if pcall_obj is not None:
-            if not object_hash == pcall_obj:
+            if object_hash == pcall_obj:
                 self._timing_total += time_ns
                 self._pcall_hash = None
 
                 if self._realtime:
-                    self._print_report()
+                    self._print_report(realtime=True)
 
     @staticmethod
     def _create_object_call(obj: Callable) -> ObjectCall:
@@ -198,9 +216,9 @@ class TimeProfilerBase:
         class ClassWrapper(cls_obj):  # type: ignore
             def __init__(_self, *args: P.args, **kwargs: P.kwargs) -> None:
                 hash_ref = self._set_pcall_hash(main_ref)
-                start_time = time_ns()
+                start_time = perf_counter_ns()
                 super().__init__(*args, **kwargs)
-                elapsed_time = time_ns() - start_time
+                elapsed_time = perf_counter_ns() - start_time
                 self._append_object_profiling(hash_ref, elapsed_time)
 
             def __new__(_cls: cls_obj, *args: P.args, **kwargs: P.kwargs) -> CT:
@@ -222,9 +240,9 @@ class TimeProfilerBase:
     ) -> Callable[P, RT]:
         def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
             hash_ref = self._set_pcall_hash(main_ref)
-            start_time = time_ns()
+            start_time = perf_counter_ns()
             result = func(*args, **kwargs)
-            elapsed_time = time_ns() - start_time
+            elapsed_time = perf_counter_ns() - start_time
             self._append_object_profiling(hash_ref, elapsed_time)
             return result
 
@@ -235,9 +253,9 @@ class TimeProfilerBase:
     ) -> Callable[P, Awaitable[RT]]:
         async def function_wrapper(*args: P.args, **kwargs: P.kwargs) -> RT:
             hash_ref = self._set_pcall_hash(main_ref)
-            start_time = time_ns()
+            start_time = perf_counter_ns()
             result = await func(*args, **kwargs)
-            elapsed_time = time_ns() - start_time
+            elapsed_time = perf_counter_ns() - start_time
             self._append_object_profiling(hash_ref, elapsed_time)
             return result
 

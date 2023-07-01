@@ -16,7 +16,7 @@ setup(
     description=DESCRIPTION,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=find_packages(exclude=["examples"]),
+    packages=find_packages(),
     python_requires=">=3.10",
     install_requires=["setuptools>=45.0"],
     classifiers=[

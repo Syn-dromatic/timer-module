@@ -73,7 +73,7 @@ class ProfileMetricsReport:
         self.terminal = Terminal()
         self.header_color = self.get_header_color()
         self.call_color = self.get_call_color()
-        self.total_color = CyanANSI()
+        self.total_time_color = self.get_total_time_color()
 
     def get_header_color(self) -> ANSICode:
         if self.realtime:
@@ -84,6 +84,11 @@ class ProfileMetricsReport:
         if self.realtime:
             return CyanANSI()
         return WhiteANSI()
+
+    def get_total_time_color(self) -> ANSICode:
+        if self.realtime:
+            return YellowANSI()
+        return GreenANSI()
 
     def get_relative_percentage(self, pcall_ns: float, call_ns: float) -> float:
         percentage = 0.0
@@ -159,5 +164,5 @@ class ProfileMetricsReport:
 
         string = "――― Total Time: [{}] ―――\n\n\n"
         string = string.format(f"{total_time}")
-        self.terminal.set_ansi_color(self.total_color)
+        self.terminal.set_ansi_color(self.total_time_color)
         self.terminal.write(string)

@@ -46,12 +46,12 @@ class WhiteANSI(ANSICode):
         self.value: str = "\033[37m"
 
 
-class Stdio:
+class Terminal:
     def __init__(self, ansi_color: ANSICode = WhiteANSI()):
         self.ansi_color = ansi_color
         self.ansi_reset = ResetANSI()
 
-    def stdout(self, text: str):
+    def write(self, text: str):
         string = "{}{}{}"
         ansi_color_val = self.ansi_color.value
         ansi_reset_val = self.ansi_reset.value

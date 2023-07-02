@@ -39,7 +39,12 @@ class CallableMetrics:
     __slots__ = ("name", "module", "call_hash", "ncalls", "time_ns")
 
     def __init__(
-        self, name: str, module: str, call_hash: int, ncalls: int, time_ns: float
+        self,
+        name: str,
+        module: str,
+        call_hash: int,
+        ncalls: int,
+        time_ns: float,
     ):
         self.name = name
         self.module = module
@@ -147,7 +152,6 @@ class ProfileMetricsReport:
         self,
         callable_refs: dict[int, CallableMetrics],
         timing_refs: dict[int, dict[int, CallableMetrics]],
-        total_time_ns: float,
     ):
         for pcall_hash, subcalls in timing_refs.items():
             pcall_metrics = callable_refs[pcall_hash]

@@ -22,7 +22,6 @@ class TimeProfilerBase:
             cls.instance = super(TimeProfilerBase, cls).__new__(cls)
             cls._callable_refs: dict[int, CallableMetrics] = {}
             cls._timing_refs: dict[int, dict[int, CallableMetrics]] = {}
-            cls._timing_total: float = 0.0
             cls._pcall_hash: Optional[int] = None
         return cls.instance
 
@@ -33,8 +32,7 @@ class TimeProfilerBase:
         metrics_report = ProfileMetricsReport(realtime)
         callable_refs = self._callable_refs
         timing_refs = self._timing_refs
-        total_time = self._timing_total
-        metrics_report.write_report(callable_refs, timing_refs, total_time)
+        metrics_report.write_report(callable_refs, timing_refs)
 
     @staticmethod
     def _set_attribute(instance: CT, name: str, method: Callable) -> CT:
@@ -53,8 +51,6 @@ class TimeProfilerBase:
                 call_metrics = callable_refs[call_hash]
                 call_metrics.time_ns += time_ns
                 call_metrics.ncalls += 1
-
-                self._timing_total += time_ns
                 self._pcall_hash = None
 
                 if self._realtime:

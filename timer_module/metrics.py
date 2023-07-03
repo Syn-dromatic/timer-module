@@ -1,3 +1,6 @@
+from copy import copy
+
+from .hasher import Hasher
 from .terminal import Terminal
 from .terminal import ANSICode, GreenANSI, YellowANSI, WhiteANSI, CyanANSI
 
@@ -36,40 +39,45 @@ class TimeFormatterNs:
 
 
 class CallableMetrics:
-    __slots__ = ("name", "module", "call_hash", "ncalls", "time_ns")
+    __slots__ = ("name", "module", "suffix", "call_hash", "ncalls", "time_ns")
 
     def __init__(
         self,
         name: str,
         module: str,
-        call_hash: int,
+        suffix: str,
         ncalls: int,
         time_ns: float,
     ):
         self.name = name
         self.module = module
-        self.call_hash = call_hash
+        self.suffix = suffix
         self.ncalls = ncalls
         self.time_ns = time_ns
+        self.call_hash = self.get_hash()
 
     def __hash__(self) -> int:
         return self.call_hash
 
-    def clone_and_reset(self) -> "CallableMetrics":
-        call_metrics = CallableMetrics(
-            name=self.name,
-            module=self.module,
-            call_hash=self.call_hash,
-            ncalls=0,
-            time_ns=0.0,
-        )
-        return call_metrics
+    def get_hash(self) -> int:
+        call_identifier = self.get_call_identifier()
+        return Hasher(call_identifier).hash_sha1()
+
+    def get_call_identifier(self) -> str:
+        call_identifier = f"{self.module}.{self.name}"
+        return call_identifier
 
     def get_percall_time(self) -> float:
         if self.ncalls > 0:
             percall_time_ns = self.time_ns / self.ncalls
             return percall_time_ns
         return 0.0
+
+    def fresh_copy(self) -> "CallableMetrics":
+        call_metrics = copy(self)
+        call_metrics.ncalls = 0
+        call_metrics.time_ns = 0.0
+        return call_metrics
 
 
 class ProfileMetricsReport:
@@ -103,6 +111,10 @@ class ProfileMetricsReport:
 
     def write_primary_call_header(self, call_metrics: CallableMetrics):
         pcall_name = call_metrics.name
+        pcall_suffix = call_metrics.suffix
+        if pcall_suffix:
+            pcall_name += f" ({pcall_suffix})"
+
         profile_header = "█ PROFILE: {} █"
         profile_header = profile_header.format(pcall_name)
         separator = "=" * len(profile_header)
@@ -125,6 +137,9 @@ class ProfileMetricsReport:
 
     def write_call_report(self, call_metrics: CallableMetrics, pcall_time: float):
         call_name = call_metrics.name
+        call_suffix = call_metrics.suffix
+        if call_suffix:
+            call_name += f" ({call_suffix})"
         call_time_ns = call_metrics.time_ns
         call_ncalls = call_metrics.ncalls
         percall_time_ns = call_metrics.get_percall_time()

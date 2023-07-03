@@ -1,12 +1,10 @@
-import hashlib
-
 from time import perf_counter_ns
-from functools import lru_cache
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Self
 from typing import Union, Optional, Type, TypeVar, ParamSpec
 from inspect import getmembers, ismethod, isfunction, iscoroutinefunction
 
 from .metrics import CallableMetrics, ProfileMetricsReport
+from .logger import TimeProfilerLogger
 
 P = ParamSpec("P")
 RT = TypeVar("RT")
@@ -14,10 +12,12 @@ CT = TypeVar("CT")
 
 
 class TimeProfilerBase:
-    def __init__(self, realtime: bool = False) -> None:
+    def __init__(self, realtime: bool = False, verbose: bool = False) -> None:
         self._realtime: bool = realtime
+        self._verbose: bool = verbose
+        self._profiler_logger: TimeProfilerLogger = TimeProfilerLogger()
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> Self:
         if not hasattr(cls, "instance") or not isinstance(cls.instance, cls):
             cls.instance = super(TimeProfilerBase, cls).__new__(cls)
             cls._callable_refs: dict[int, CallableMetrics] = {}
@@ -43,12 +43,11 @@ class TimeProfilerBase:
         return instance
 
     def _append_metrics(self, call_hash: int, time_ns: float) -> None:
-        callable_refs = self._callable_refs
         pcall_hash = self._pcall_hash
 
         if pcall_hash is not None:
             if call_hash == pcall_hash:
-                call_metrics = callable_refs[call_hash]
+                call_metrics = self._callable_refs[call_hash]
                 call_metrics.time_ns += time_ns
                 call_metrics.ncalls += 1
                 self._pcall_hash = None
@@ -59,30 +58,22 @@ class TimeProfilerBase:
                 call_metrics = self._timing_refs[pcall_hash][call_hash]
                 call_metrics.time_ns += time_ns
                 call_metrics.ncalls += 1
+                if self._verbose:
+                    self._profiler_logger.subcall_event(call_metrics)
 
     @staticmethod
-    def _create_callable_metrics(call: Callable, call_hash: int) -> CallableMetrics:
+    def _create_callable_metrics(call: Callable, suffix: str) -> CallableMetrics:
         name = call.__qualname__
         module = call.__module__
-        if isinstance(call, type):
-            name += " (Initialization)"
 
         call_metrics = CallableMetrics(
             name=name,
             module=module,
-            call_hash=call_hash,
+            suffix=suffix,
             ncalls=0,
             time_ns=0.0,
         )
         return call_metrics
-
-    @staticmethod
-    @lru_cache(maxsize=None)
-    def hash_type_id(type_id: Type) -> int:
-        hasher = hashlib.sha1()
-        hasher.update(str(type_id).encode())
-        hash_result = int(hasher.hexdigest(), 16)
-        return hash_result
 
     def _set_pcall_hash(self, call_hash: int):
         pcall_hash = self._pcall_hash
@@ -92,18 +83,24 @@ class TimeProfilerBase:
             self._pcall_hash = pcall_hash
             if pcall_hash not in self._timing_refs:
                 self._timing_refs[pcall_hash] = {}
+
+            call_metrics = self._callable_refs[pcall_hash]
+            if self._verbose:
+                self._profiler_logger.set_primary_call(call_metrics)
             return
 
         pcall_timing = self._timing_refs[pcall_hash]
         if call_hash not in pcall_timing:
             call_metrics = self._callable_refs[call_hash]
-            new_metrics = call_metrics.clone_and_reset()
+            new_metrics = call_metrics.fresh_copy()
             pcall_timing.update({call_hash: new_metrics})
 
-    def _add_call_ref(self, call: Callable) -> int:
-        call_hash = self.hash_type_id(call)
-        call_metrics = self._create_callable_metrics(call, call_hash)
+    def _add_call_ref(self, call: Callable, suffix: str = "") -> int:
+        call_metrics = self._create_callable_metrics(call, suffix)
+        call_hash = call_metrics.call_hash
         self._callable_refs[call_hash] = call_metrics
+        if self._verbose:
+            self._profiler_logger.add_call_reference(call_metrics)
         return call_hash
 
     def _get_method_wrapper(
@@ -131,9 +128,10 @@ class TimeProfilerBase:
                 functions = getmembers(cls_instance, predicate=isfunction)
                 members = methods + functions
                 for name, member in members:
-                    member_ref = self._add_call_ref(member)
-                    member = self._get_method_wrapper(member, member_ref)
-                    cls_instance = self._set_attribute(cls_instance, name, member)
+                    if member.__module__ != __name__:
+                        member_ref = self._add_call_ref(member)
+                        member = self._get_method_wrapper(member, member_ref)
+                        cls_instance = self._set_attribute(cls_instance, name, member)
 
                 return cls_instance
 
@@ -168,7 +166,7 @@ class TimeProfilerBase:
 
 class TimeProfiler(TimeProfilerBase):
     def class_profiler(self, cls_obj: Type[Callable[P, CT]]) -> Type[CT]:
-        main_ref = self._add_call_ref(cls_obj)
+        main_ref = self._add_call_ref(cls_obj, "Initialization")
         return self._class_wrapper(cls_obj, main_ref)
 
     def function_profiler(self, func: Callable[P, RT]) -> Callable[P, RT]:

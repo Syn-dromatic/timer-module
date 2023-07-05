@@ -62,14 +62,14 @@ class TimeProfilerBase:
                     self._profiler_logger.subcall_event(call_metrics)
 
     @staticmethod
-    def _create_callable_metrics(call: Callable, suffix: str) -> CallableMetrics:
+    def _create_callable_metrics(call: Callable, notice: str) -> CallableMetrics:
         name = call.__qualname__
         module = call.__module__
 
         call_metrics = CallableMetrics(
             name=name,
             module=module,
-            suffix=suffix,
+            notice=notice,
             ncalls=0,
             time_ns=0.0,
         )
@@ -95,8 +95,8 @@ class TimeProfilerBase:
             new_metrics = call_metrics.fresh_copy()
             pcall_timing.update({call_hash: new_metrics})
 
-    def _add_call_ref(self, call: Callable, suffix: str = "") -> int:
-        call_metrics = self._create_callable_metrics(call, suffix)
+    def _add_call_ref(self, call: Callable, notice: str = "") -> int:
+        call_metrics = self._create_callable_metrics(call, notice)
         call_hash = call_metrics.call_hash
         self._callable_refs[call_hash] = call_metrics
         if self._verbose:

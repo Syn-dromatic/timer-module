@@ -39,19 +39,19 @@ class TimeFormatterNs:
 
 
 class CallableMetrics:
-    __slots__ = ("name", "module", "suffix", "call_hash", "ncalls", "time_ns")
+    __slots__ = ("name", "module", "notice", "call_hash", "ncalls", "time_ns")
 
     def __init__(
         self,
         name: str,
         module: str,
-        suffix: str,
+        notice: str,
         ncalls: int,
         time_ns: float,
     ):
         self.name = name
         self.module = module
-        self.suffix = suffix
+        self.notice = notice
         self.ncalls = ncalls
         self.time_ns = time_ns
         self.call_hash = self.get_hash()
@@ -109,12 +109,15 @@ class ProfileMetricsReport:
             percentage = (call_ns / pcall_ns) * 100
         return percentage
 
-    def write_primary_call_header(self, call_metrics: CallableMetrics):
+    def get_call_name(self, call_metrics: CallableMetrics):
         pcall_name = call_metrics.name
-        pcall_suffix = call_metrics.suffix
-        if pcall_suffix:
-            pcall_name += f" ({pcall_suffix})"
+        pcall_notice = call_metrics.notice
+        if pcall_notice:
+            pcall_name += f" ({pcall_notice})"
+        return pcall_name
 
+    def write_primary_call_header(self, call_metrics: CallableMetrics):
+        pcall_name = self.get_call_name(call_metrics)
         profile_header = "█ PROFILE: {} █"
         profile_header = profile_header.format(pcall_name)
         separator = "=" * len(profile_header)
@@ -136,10 +139,7 @@ class ProfileMetricsReport:
         self.terminal.write(string)
 
     def write_call_report(self, call_metrics: CallableMetrics, pcall_time: float):
-        call_name = call_metrics.name
-        call_suffix = call_metrics.suffix
-        if call_suffix:
-            call_name += f" ({call_suffix})"
+        call_name = self.get_call_name(call_metrics)
         call_time_ns = call_metrics.time_ns
         call_ncalls = call_metrics.ncalls
         percall_time_ns = call_metrics.get_percall_time()

@@ -13,6 +13,7 @@ pip install timer-module
 
 ___
 ## 🖥️ Timer Usage:
+### Example Usage:
 ```python
 import time
 from timer_module import TimerModule
@@ -20,28 +21,53 @@ from timer_module import TimerModule
 timer_module = TimerModule().start()
 
 timer_module.pause()
-time.sleep(2)
+time.sleep(0.2)
 
 timer_module.start()
-time.sleep(2)
+time.sleep(0.5)
 
-time_seconds = timer_module.get_time()
-print(time_seconds)
+seconds = timer_module.get_time()
+print(seconds)
 ```
 
-#### Set the timer
+#### Get the current time
 ```python
-timer_module = TimerModule().set_time(5).start()
+# Seconds
+TimerModule().get_time() # float
+
+# Milliseconds
+TimerModule().get_time_ms() # float
+
+# Nanoseconds
+TimerModule().get_time_ns() # float
 ```
 
-#### Refresh time (preserves timer state):
+
+#### Set the starting time
 ```python
-timer_module.refresh()
+# Seconds
+TimerModule().set_time(1.0)
+
+# Milliseconds
+TimerModule().set_time_ms(1.0)
+
+# Nanoseconds
+TimerModule().set_time_ns(1.0)
 ```
 
-#### Reset time (resets everyting)
+#### Pause timer:
 ```python
-timer_module.reset()
+TimerModule().pause()
+```
+
+#### Refresh timer (preserves timer run state):
+```python
+TimerModule().refresh()
+```
+
+#### Reset timer (resets everything)
+```python
+TimerModule().reset()
 ```
 
 ___

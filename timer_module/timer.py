@@ -14,8 +14,8 @@ class TimerModuleBase:
 
     @staticmethod
     def _get_time_ns() -> float:
-        time_ms = time.time_ns()
-        return time_ms
+        time_ns = time.time_ns()
+        return time_ns
 
     def _set_time_ns(self, nanoseconds: float):
         self._cr_time_ns = nanoseconds
